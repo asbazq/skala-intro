@@ -5,14 +5,15 @@ import random
 pygame.init()
 
 # 상수로 화면 크기 및 격자 크기 정의
-SCREEN_WIDTH = 400
+# 미리보기 공간을 위해 가로 크기를 500으로 넓혔습니다.
+SCREEN_WIDTH = 500
 SCREEN_HEIGHT = 500
 BLOCK_SIZE = 30  # 격자 한 칸의 크기 (픽셀)
 GRID_WIDTH = 10  # 가로 격자 개수
 GRID_HEIGHT = 15 # 세로 격자 개수
 
-# 게임판 위치 설정 (화면 중앙 부근)
-X_OFFSET = (SCREEN_WIDTH - GRID_WIDTH * BLOCK_SIZE) // 2
+# 게임판 위치 설정 (화면 오른쪽 영역으로 배치)
+X_OFFSET = 170
 Y_OFFSET = SCREEN_HEIGHT - GRID_HEIGHT * BLOCK_SIZE - 20
 
 # 색상 정의 (RGB)
@@ -33,7 +34,6 @@ SHAPE_COLORS = [
 ]
 
 # 테트리미노 블록 모양 패턴 (각 회전 상태 정의)
-# 4x4 격자 기준 좌표로 표현
 SHAPES = [
     # I 블록
     [[[1, 0], [1, 1], [1, 2], [1, 3]], [[0, 2], [1, 2], [2, 2], [3, 2]]],
@@ -72,24 +72,23 @@ class Tetris:
     def __init__(self):
         self.grid = [[(0, 0, 0) for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
         self.current_piece = Piece(GRID_WIDTH // 2 - 1, 0)
+        self.next_piece = Piece(GRID_WIDTH // 2 - 1, 0)  # 다음에 등장할 블록 생성
         self.game_over = False
         self.score = 0
 
-    # 블록이 충돌하는지 체크 (벽, 바닥, 혹은 기존에 쌓인 블록)
+    # 블록이 충돌하는지 체크
     def check_collision(self, piece, offset_x=0, offset_y=0):
         for r, c in piece.image:
             target_x = piece.x + c + offset_x
             target_y = piece.y + r + offset_y
             
-            # 경계선 체크
             if target_x < 0 or target_x >= GRID_WIDTH or target_y >= GRID_HEIGHT:
                 return True
-            # 쌓여있는 블록과의 충돌 체크 (화면 위는 예외)
             if target_y >= 0 and self.grid[target_y][target_x] != (0, 0, 0):
                 return True
         return False
 
-    # 블록을 고정시키고 줄이 꽉 찼는지 확인
+    # 블록 고정 및 다음 블록을 현재 블록으로 교체
     def lock_piece(self):
         for r, c in self.current_piece.image:
             target_y = self.current_piece.y + r
@@ -99,14 +98,14 @@ class Tetris:
         
         self.clear_lines()
         
-        # 새로운 블록 생성
-        self.current_piece = Piece(GRID_WIDTH // 2 - 1, 0)
+        # 다음 블록을 가져오고 새로운 미리보기 블록 생성
+        self.current_piece = self.next_piece
+        self.next_piece = Piece(GRID_WIDTH // 2 - 1, 0)
         
-        # 새 블록이 나오자마자 충돌하면 게임 오버
         if self.check_collision(self.current_piece):
             self.game_over = True
 
-    # 가득 찬 줄 제거 및 점수 획득
+    # 줄 지우기
     def clear_lines(self):
         lines_to_clear = []
         for r in range(GRID_HEIGHT):
@@ -115,48 +114,44 @@ class Tetris:
         
         for r in lines_to_clear:
             del self.grid[r]
-            # 맨 위에 빈 줄 추가
             self.grid.insert(0, [(0, 0, 0) for _ in range(GRID_WIDTH)])
             self.score += 100
 
-    # 한 칸 아래로 떨어뜨리기
     def drop(self):
         if not self.check_collision(self.current_piece, offset_y=1):
             self.current_piece.y += 1
         else:
             self.lock_piece()
 
-    # 스페이스바: 즉시 하강 (Hard Drop)
     def hard_drop(self):
         while not self.check_collision(self.current_piece, offset_y=1):
             self.current_piece.y += 1
         self.lock_piece()
 
-    # 좌우 이동
     def move(self, dx):
         if not self.check_collision(self.current_piece, offset_x=dx):
             self.current_piece.x += dx
 
-    # 회전 시도 (벽에 부딪히면 회전 불가하도록 방지)
     def rotate_piece(self):
         old_rotation = self.current_piece.rotation
         self.current_piece.rotate()
         if self.check_collision(self.current_piece):
-            self.current_piece.rotation = old_rotation  # 충돌 시 원래대로 롤백
+            self.current_piece.rotation = old_rotation
 
 
+# 게임판 그리기
 def draw_grid(screen, grid):
     for r in range(GRID_HEIGHT):
         for c in range(GRID_WIDTH):
             rect = pygame.Rect(X_OFFSET + c * BLOCK_SIZE, Y_OFFSET + r * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
             if grid[r][c] != (0, 0, 0):
                 pygame.draw.rect(screen, grid[r][c], rect)
-                pygame.draw.rect(screen, GRAY, rect, 1)  # 블록 테두리
+                pygame.draw.rect(screen, GRAY, rect, 1)
             else:
-                # 배경 빈 격자선 그리기
                 pygame.draw.rect(screen, GRAY, rect, 1)
 
 
+# 현재 조작 중인 블록 그리기
 def draw_piece(screen, piece):
     for r, c in piece.image:
         target_y = piece.y + r
@@ -164,7 +159,32 @@ def draw_piece(screen, piece):
         if target_y >= 0:
             rect = pygame.Rect(X_OFFSET + target_x * BLOCK_SIZE, Y_OFFSET + target_y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
             pygame.draw.rect(screen, piece.color, rect)
-            pygame.draw.rect(screen, WHITE, rect, 1)  # 움직이는 블록 테두리
+            pygame.draw.rect(screen, WHITE, rect, 1)
+
+
+# 화면 왼쪽 상단에 다음 블록 미리보기 그리기
+def draw_preview(screen, piece, font):
+    # 'NEXT' 라벨 텍스트
+    next_label = font.render("NEXT", True, WHITE)
+    screen.blit(next_label, (25, 120))
+    
+    # 미리보기 상자 테두리 그리기
+    preview_box = pygame.Rect(20, 150, 120, 120)
+    pygame.draw.rect(screen, GRAY, preview_box, 2)
+    
+    # 다음 블록 그리기 (미리보기 상자 안 중앙 정렬을 위한 좌표 보정)
+    # 블록 종류에 따라 보정값 차등 적용 (I, O, 기타 블록 구분)
+    offset_x = 30 if piece.type in [0, 3] else 40
+    offset_y = 165 if piece.type == 0 else 180
+
+    for r, c in piece.image:
+        rect = pygame.Rect(
+            20 + c * 25 + offset_x,  # 크기를 살짝 작게(25px) 그립니다
+            offset_y + r * 25, 
+            25, 25
+        )
+        pygame.draw.rect(screen, piece.color, rect)
+        pygame.draw.rect(screen, WHITE, rect, 1)
 
 
 def main():
@@ -173,30 +193,26 @@ def main():
     clock = pygame.time.Clock()
     game = Tetris()
     
-    # 떨어지는 속도 조절 타이머 (밀리초 단위)
     fall_time = 0
-    fall_speed = 500  # 0.5초마다 한 칸씩 하강
+    fall_speed = 500  # 0.5초마다 자동 하강
 
     running = True
     while running:
         screen.fill(BLACK)
-        dt = clock.tick(60)  # 60 FPS 기준 프레임 타이머
+        dt = clock.tick(60)
         fall_time += dt
 
-        # 자동 하강 로직
         if fall_time >= fall_speed:
             if not game.game_over:
                 game.drop()
             fall_time = 0
 
-        # 키보드 이벤트 처리
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             
             if event.type == pygame.KEYDOWN:
                 if game.game_over:
-                    # 게임 오버 상태에서 아무 키나 누르면 재시작
                     game = Tetris()
                 else:
                     if event.key == pygame.K_LEFT:
@@ -210,19 +226,31 @@ def main():
                     elif event.key == pygame.K_SPACE:
                         game.hard_drop()
 
-        # 화면 그리기
+        # UI 요소 폰트
+        font = pygame.font.SysFont("malgungothic", 20)
+        
+        # 1. 게임 메인 판 그리기
         draw_grid(screen, game.grid)
+        
+        # 2. 현재 블록 그리기
         if not game.game_over:
             draw_piece(screen, game.current_piece)
 
-        # 점수 및 게임 상태 텍스트 표시
-        font = pygame.font.SysFont("malgungothic", 24)  # 윈도우 한글 폰트 기준
-        score_text = font.render(f"SCORE: {game.score}", True, WHITE)
-        screen.blit(score_text, (20, 20))
+        # 3. 왼쪽 상단 다음 블록 미리보기 그리기
+        draw_preview(screen, game.next_piece, font)
 
+        # 점수 표시 (왼쪽 상단 구석)
+        score_text = font.render(f"SCORE", True, WHITE)
+        score_val = font.render(f"{game.score}", True, (0, 255, 255))
+        screen.blit(score_text, (25, 25))
+        screen.blit(score_val, (25, 50))
+
+        # 게임 오버 메시지
         if game.game_over:
-            over_text = font.render("GAME OVER - Press Any Key", True, (255, 0, 0))
-            screen.blit(over_text, (SCREEN_WIDTH // 2 - over_text.get_width() // 2, SCREEN_HEIGHT // 2))
+            over_text = font.render("GAME OVER", True, (255, 0, 0))
+            restart_text = font.render("Press Any Key", True, WHITE)
+            screen.blit(over_text, (X_OFFSET + 35, SCREEN_HEIGHT // 2 - 20))
+            screen.blit(restart_text, (X_OFFSET + 30, SCREEN_HEIGHT // 2 + 10))
 
         pygame.display.flip()
 
