@@ -1,53 +1,42 @@
 import pygame
 import random
+import os  # 파일 존재 여부 확인용
 
 # 초기화
 pygame.init()
+pygame.mixer.init()  # 사운드 믹서 초기화
 
 # 상수로 화면 크기 및 격자 크기 정의
 SCREEN_WIDTH = 500
 SCREEN_HEIGHT = 500
-BLOCK_SIZE = 30  # 격자 한 칸의 크기 (픽셀)
-GRID_WIDTH = 10  # 가로 격자 개수
-GRID_HEIGHT = 15 # 세로 격자 개수
+BLOCK_SIZE = 30  
+GRID_WIDTH = 10  
+GRID_HEIGHT = 15 
 
-# 게임판 위치 설정 (화면 오른쪽 영역으로 배치)
+# 게임판 위치 설정
 X_OFFSET = 170
 Y_OFFSET = SCREEN_HEIGHT - GRID_HEIGHT * BLOCK_SIZE - 20
 
-# 색상 정의 (RGB)
+# 색상 정의
 BLACK = (10, 10, 10)
 WHITE = (255, 255, 255)
 GRAY = (50, 50, 50)
-LIGHT_GRAY = (150, 150, 150)
-YELLOW = (255, 215, 0)  # 점수 강조용 노란색
+YELLOW = (255, 215, 0)
 
 # 테트리미노 블록 색상들
 SHAPE_COLORS = [
-    (0, 255, 255),   # 하늘색 (I)
-    (255, 165, 0),   # 주황색 (L)
-    (0, 0, 255),     # 파란색 (J)
-    (255, 255, 0),   # 노란색 (O)
-    (0, 255, 0),     # 초록색 (S)
-    (128, 0, 128),   # 보라색 (T)
-    (255, 0, 0)      # 빨간색 (Z)
+    (0, 255, 255), (255, 165, 0), (0, 0, 255),
+    (255, 255, 0), (0, 255, 0), (128, 0, 128), (255, 0, 0)
 ]
 
 # 테트리미노 블록 모양 패턴
 SHAPES = [
-    # I 블록
     [[[1, 0], [1, 1], [1, 2], [1, 3]], [[0, 2], [1, 2], [2, 2], [3, 2]]],
-    # L 블록
     [[[1, 0], [1, 1], [1, 2], [2, 2]], [[0, 1], [1, 1], [2, 1], [2, 0]], [[0, 0], [1, 0], [1, 1], [1, 2]], [[0, 1], [0, 2], [1, 1], [2, 1]]],
-    # J 블록
     [[[1, 0], [1, 1], [1, 2], [2, 0]], [[0, 1], [1, 1], [2, 1], [2, 2]], [[0, 2], [1, 0], [1, 1], [1, 2]], [[0, 0], [0, 1], [1, 1], [2, 1]]],
-    # O 블록
     [[[0, 0], [0, 1], [1, 0], [1, 1]]],
-    # S 블록
     [[[1, 1], [1, 2], [2, 0], [2, 1]], [[0, 1], [1, 1], [1, 2], [2, 2]]],
-    # T 블록
     [[[1, 0], [1, 1], [1, 2], [2, 1]], [[0, 1], [1, 0], [1, 1], [2, 1]], [[0, 1], [1, 0], [1, 1], [1, 2]], [[0, 1], [1, 1], [1, 2], [2, 1]]],
-    # Z 블록
     [[[1, 0], [1, 1], [2, 1], [2, 2]], [[0, 2], [1, 1], [1, 2], [2, 1]]]
 ]
 
@@ -101,6 +90,8 @@ class Tetris:
         
         if self.check_collision(self.current_piece):
             self.game_over = True
+            # 게임 오버 시 음악 정지
+            pygame.mixer.music.stop()
 
     def clear_lines(self):
         lines_to_clear = []
@@ -176,25 +167,37 @@ def draw_preview(screen, piece, font):
         pygame.draw.rect(screen, WHITE, rect, 1)
 
 
-# 우측 상단에 점수판을 그리는 함수 추가
 def draw_score(screen, score, font):
-    # 점수판 상자 영역 (화면 우측 상단 X: 350~470 영역)
     score_box = pygame.Rect(355, 30, 120, 75)
-    pygame.draw.rect(screen, GRAY, score_box, 2)  # 테두리 상자 그리기
+    pygame.draw.rect(screen, GRAY, score_box, 2)
     
-    # "SCORE" 텍스트 (상자 안 위쪽 중앙 정렬)
     score_label = font.render("SCORE", True, WHITE)
     screen.blit(score_label, (score_box.centerx - score_label.get_width() // 2, 40))
     
-    # 실제 점수 수치 (상자 안 아래쪽 중앙 정렬 및 노란색 강조)
     score_val = font.render(f"{score}", True, YELLOW)
     screen.blit(score_val, (score_box.centerx - score_val.get_width() // 2, 68))
+
+
+# 배경 음악을 로드하고 재생하는 함수
+def play_background_music():
+    bgm_filename = "bgm.mp3"  # 사용하려는 음악 파일명
+    
+    if os.path.exists(bgm_filename):
+        pygame.mixer.music.load(bgm_filename)
+        pygame.mixer.music.set_volume(0.3)  # 음량 조절 (0.0 ~ 1.0)
+        pygame.mixer.music.play(-1)         # -1은 무한 반복을 의미합니다.
+    else:
+        print(f"경고: '{bgm_filename}' 파일을 찾을 수 없어 음악을 재생하지 못했습니다.")
 
 
 def main():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("테트리스 (Tetris)")
     clock = pygame.time.Clock()
+    
+    # 1. 게임 시작 시 배경 음악 실행
+    play_background_music()
+    
     game = Tetris()
     
     fall_time = 0
@@ -217,7 +220,9 @@ def main():
             
             if event.type == pygame.KEYDOWN:
                 if game.game_over:
+                    # 게임 오버 후 재시작 시 게임 인스턴스 초기화 및 BGM 재시작
                     game = Tetris()
+                    play_background_music()
                 else:
                     if event.key == pygame.K_LEFT:
                         game.move(-1)
@@ -232,25 +237,19 @@ def main():
 
         font = pygame.font.SysFont("malgungothic", 20)
         
-        # 1. 게임 메인 판 그리기
         draw_grid(screen, game.grid)
         
-        # 2. 현재 조작중인 블록 그리기
         if not game.game_over:
             draw_piece(screen, game.current_piece)
 
-        # 3. 왼쪽 상단 다음 블록 미리보기 그리기
         draw_preview(screen, game.next_piece, font)
-
-        # 4. 오른쪽 상단에 점수판 그리기 (신규 추가)
         draw_score(screen, game.score, font)
 
-        # 게임 오버 메시지
         if game.game_over:
             over_text = font.render("GAME OVER", True, (255, 0, 0))
-            restart_text = font.render("Press Any Key", True, WHITE)
+            restart_text = font.render("Press Any Key to Retry", True, WHITE)
             screen.blit(over_text, (X_OFFSET + 35, SCREEN_HEIGHT // 2 - 20))
-            screen.blit(restart_text, (X_OFFSET + 30, SCREEN_HEIGHT // 2 + 10))
+            screen.blit(restart_text, (X_OFFSET + 5, SCREEN_HEIGHT // 2 + 10))
 
         pygame.display.flip()
 
